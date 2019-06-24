@@ -1748,6 +1748,8 @@ struct task_struct {
 	atomic_t usage;
 	unsigned int flags;	/* per process flags, defined below */
 	unsigned int ptrace;
+	int compensate_time;
+	int compensate_need;
 
     bool dump_fd_leak;
 
@@ -2248,6 +2250,11 @@ struct task_struct {
 	/* A live task holds one reference. */
 	atomic_t stack_refcount;
 #endif
+	u64 utask_tag;
+	u64 utask_tag_base;
+	int etask_claim;
+	int claim_cpu;
+	bool utask_slave;
 /* CPU-specific state of this task */
 	struct thread_struct thread;
 /*
