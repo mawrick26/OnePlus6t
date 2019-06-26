@@ -23,6 +23,7 @@
 #include "dsi_panel.h"
 #include "dsi_ctrl_hw.h"
 #include <linux/project_info.h>
+#include <linux/pm_wakeup.h>
 #include "../sde/sde_trace.h"
 /**
  * topology is currently defined by a set of following 3 values:
@@ -3935,6 +3936,7 @@ int dsi_panel_enable(struct dsi_panel *panel)
 			  }
 
 	pr_err("end\n");
+	pm_print_active_wakeup_sources_queue(false);
 	return rc;
 }
 
@@ -4032,6 +4034,9 @@ if(panel->aod_mode==2)
 
 error:
 	mutex_unlock(&panel->panel_lock);
+	pr_err("end\n");
+	/* add print actvie ws */
+	pm_print_active_wakeup_sources_queue(true);
 	return rc;
 }
 
