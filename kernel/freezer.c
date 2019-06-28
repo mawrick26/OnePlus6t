@@ -104,6 +104,26 @@ static void fake_signal_wake_up(struct task_struct *p)
 	}
 }
 
+bool freeze_cgroup_task(struct task_struct *p)
+{
+       unsigned long flags;
+
+       spin_lock_irqsave(&freezer_lock, flags);
+       if (!freezing(p) || frozen(p)) {
+               spin_unlock_irqrestore(&freezer_lock, flags);
+               return false;
+       }
+
+       if (!(p->flags & PF_KTHREAD))
+               fake_signal_wake_up(p);
+       else
+               wake_up_state(p, TASK_INTERRUPTIBLE);
+
+       spin_unlock_irqrestore(&freezer_lock, flags);
+       return true;
+}
+
+
 /**
  * freeze_task - send a freeze request to given task
  * @p: task to send the request to
