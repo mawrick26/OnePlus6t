@@ -2562,7 +2562,7 @@ static bool inactive_list_is_low(struct lruvec *lruvec, bool file,
 	inactive = lruvec_lru_size(lruvec, inactive_lru, sc->reclaim_idx);
 	active = lruvec_lru_size(lruvec, active_lru, sc->reclaim_idx);
 
-	gb = (inactive + active) >> (30 - PAGE_SHIFT);
+	gb = (inactive + active) >> (30 - PAGE_SHIFT); // if inactive + active > 1G, gb > 0
 	if (gb)
 		inactive_ratio = int_sqrt(10 * gb);
 	else
