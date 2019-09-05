@@ -30,4 +30,3 @@
 &bq27541_battery {
 		op,mcl_verion;
 };
-

@@ -26,5 +26,3 @@
 &pmi8998_charger {
 	warm-bat-decidegc = <480>;
 };
-
-
