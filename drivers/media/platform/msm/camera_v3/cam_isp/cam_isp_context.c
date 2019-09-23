@@ -826,6 +826,14 @@ static int __cam_isp_ctx_sof_in_activated_state(
 
 	ctx_isp->irq_timestamps = sof_event_data->irq_mono_boot_time;
 
+	if (ctx_isp->frame_id == 1)
+		ctx_isp->irq_timestamps = sof_event_data->irq_mono_boot_time;
+	else if (ctx_isp->fps && ((sof_event_data->irq_mono_boot_time -
+			ctx_isp->irq_timestamps) > ((1000*1000)/ctx_isp->fps)))
+		ctx_isp->irq_delay_detect = true;
+
+	ctx_isp->irq_timestamps = sof_event_data->irq_mono_boot_time;
+
 	CAM_DBG(CAM_ISP, "frame id: %lld time stamp:0x%llx, ctx %u",
 		ctx_isp->frame_id, ctx_isp->sof_timestamp_val, ctx->ctx_id);
 
@@ -957,6 +965,15 @@ end:
 		__cam_isp_ctx_update_state_monitor_array(ctx_isp,
 			CAM_ISP_STATE_CHANGE_TRIGGER_EPOCH, request_id);
 	}
+
+	if (ctx_isp->frame_id == 1)
+		ctx_isp->irq_timestamps =
+			epoch_hw_event_data->irq_mono_boot_time;
+	else if (ctx_isp->fps && ((epoch_hw_event_data->irq_mono_boot_time -
+			ctx_isp->irq_timestamps) > ((1000*1000)/ctx_isp->fps)))
+		ctx_isp->irq_delay_detect = true;
+
+	ctx_isp->irq_timestamps = epoch_hw_event_data->irq_mono_boot_time;
 
 	if (ctx_isp->frame_id == 1)
 		ctx_isp->irq_timestamps =
@@ -1520,6 +1537,9 @@ static int __cam_isp_ctx_fs2_reg_upd_in_sof(struct cam_isp_context *ctx_isp,
 			CAM_ISP_STATE_CHANGE_TRIGGER_REG_UPDATE,
 			req->request_id);
 	}
+
+	if (req_isp && req_isp->hw_update_data.fps)
+		ctx_isp->fps = req_isp->hw_update_data.fps;
 
 	if (req_isp && req_isp->hw_update_data.fps)
 		ctx_isp->fps = req_isp->hw_update_data.fps;
@@ -2481,6 +2501,9 @@ static int __cam_isp_ctx_rdi_only_reg_upd_in_bubble_applied_state(
 	}
 	if (request_id)
 		ctx_isp->reported_req_id = request_id;
+
+	if (req_isp && req_isp->hw_update_data.fps)
+		ctx_isp->fps = req_isp->hw_update_data.fps;
 
 	if (req_isp && req_isp->hw_update_data.fps)
 		ctx_isp->fps = req_isp->hw_update_data.fps;
