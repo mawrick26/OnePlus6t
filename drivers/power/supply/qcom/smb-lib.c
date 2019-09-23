@@ -3237,7 +3237,7 @@ static int __smblib_set_prop_pd_active(struct smb_charger *chg, bool pd_active)
 
 		hvdcp = stat & QC_CHARGER_BIT;
 		vote(chg->apsd_disable_votable, PD_VOTER, false, 0);
-		vote(chg->pd_allowed_votable, PD_VOTER, true, 0);
+		vote(chg->pd_allowed_votable, PD_VOTER, false, 0);
 		vote(chg->usb_irq_enable_votable, PD_VOTER, false, 0);
 		vote(chg->hvdcp_disable_votable_indirect, PD_INACTIVE_VOTER,
 								false, 0);
@@ -3948,10 +3948,6 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 		if (rc < 0)
 			smblib_err(chg, "Couldn't to enable DPDM rc=%d\n", rc);
 
-		/* Remove FCC_STEPPER 1.5A init vote to allow FCC ramp up */
-		if (chg->fcc_stepper_enable)
-			vote(chg->fcc_votable, FCC_STEPPER_VOTER, false, 0);
-
 		if (chg->charger_collpse) {
 			op_set_collapse_fet(chg, 0);
 			chg->charger_collpse = false;
@@ -3961,6 +3957,11 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 		if (gpio_is_valid(chg->vbus_ctrl))
 			schedule_delayed_work(&chg->connecter_check_work,
 				msecs_to_jiffies(200));
+
+		/* Remove FCC_STEPPER 1.5A init vote to allow FCC ramp up */
+		if (chg->fcc_stepper_enable)
+			vote(chg->fcc_votable, FCC_STEPPER_VOTER, false, 0);
+
 		/* Schedule work to enable parallel charger */
 		vote(chg->awake_votable, PL_DELAY_VOTER, true, 0);
 		schedule_delayed_work(&chg->pl_enable_work,

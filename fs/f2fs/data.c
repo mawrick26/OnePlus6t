@@ -508,10 +508,11 @@ int f2fs_submit_page_bio(struct f2fs_io_info *fio)
 		return -EFAULT;
 	}
 
+	fio->op_flags |= fio->encrypted_page ? REQ_NOENCRYPT : 0;
+
 	if (fio->io_wbc && !is_read_io(fio->op))
 		wbc_account_io(fio->io_wbc, page, PAGE_SIZE);
 
-	fio->op_flags |= fio->encrypted_page ? REQ_NOENCRYPT : 0;
 	bio_set_op_attrs(bio, fio->op, fio->op_flags);
 
 	inc_page_count(fio->sbi, is_read_io(fio->op) ?
@@ -710,9 +711,8 @@ static int f2fs_submit_page_read(struct inode *inode, struct page *page,
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
 	struct bio *bio;
- 
-	bio = f2fs_grab_read_bio(inode, blkaddr, 1, 0);
 
+	bio = f2fs_grab_read_bio(inode, blkaddr, 1, 0);
 	if (IS_ERR(bio))
 		return PTR_ERR(bio);
 
@@ -1652,9 +1652,9 @@ static int f2fs_read_single_page(struct inode *inode, struct page *page,
 	sector_t last_block;
 	sector_t last_block_in_file;
 	sector_t block_nr;
-	int ret = 0;
 	bool bio_encrypted;
 	u64 dun;
+	int ret = 0;
 
 	block_in_file = (sector_t)page_index(page);
 	last_block = block_in_file + nr_pages;
@@ -1696,7 +1696,7 @@ got_it:
 		}
 
 		if (!f2fs_is_valid_blkaddr(F2FS_I_SB(inode), block_nr,
-						DATA_GENERIC_ENHANCE_READ)) {
+							DATA_GENERIC_ENHANCE_READ)) {
 			ret = -EFSCORRUPTED;
 			goto out;
 		}
@@ -1716,7 +1716,7 @@ zero_out:
 	if (bio && (*last_block_in_bio != block_nr - 1 ||
 		!__same_bdev(F2FS_I_SB(inode), block_nr, bio))) {
 submit_and_realloc:
-		__f2fs_submit_read_bio(F2FS_I_SB(inode), bio, DATA);
+		__submit_bio(F2FS_I_SB(inode), bio, DATA);
 		bio = NULL;
 	}
 
@@ -1754,7 +1754,7 @@ submit_and_realloc:
 	goto out;
 confused:
 	if (bio) {
-		__f2fs_submit_read_bio(F2FS_I_SB(inode), bio, DATA);
+		__submit_bio(F2FS_I_SB(inode), bio, DATA);
 		bio = NULL;
 	}
 	unlock_page(page);
@@ -1810,13 +1810,14 @@ static int f2fs_mpage_readpages(struct address_space *mapping,
 			zero_user_segment(page, 0, PAGE_SIZE);
 			unlock_page(page);
 		}
+
 next_page:
 		if (pages)
 			put_page(page);
 	}
 	BUG_ON(pages && !list_empty(pages));
 	if (bio)
-		__f2fs_submit_read_bio(F2FS_I_SB(inode), bio, DATA);
+		__submit_bio(F2FS_I_SB(inode), bio, DATA);
 	return pages ? 0 : ret;
 }
 

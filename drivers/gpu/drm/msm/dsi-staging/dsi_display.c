@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,9 @@
 #include <linux/sched.h>
 #include "../sde/sde_trace.h"
 
+int backlight_min = 0;
+module_param(backlight_min, int, 0644);
+
 #define to_dsi_bridge(x)  container_of((x), struct dsi_bridge, base)
 
 #define to_dsi_display(x) container_of(x, struct dsi_display, host)
@@ -53,7 +56,9 @@
 
 static DEFINE_MUTEX(dsi_display_list_lock);
 static LIST_HEAD(dsi_display_list);
+
 static DEFINE_MUTEX(dsi_display_clk_mutex);
+
 static char dsi_display_primary[MAX_CMDLINE_PARAM_LEN];
 static char dsi_display_secondary[MAX_CMDLINE_PARAM_LEN];
 static struct dsi_display_boot_param boot_displays[MAX_DSI_ACTIVE_DISPLAY];
@@ -175,6 +180,9 @@ int dsi_display_set_backlight(void *display, u32 bl_lvl)
 
 	bl_scale_ad = panel->bl_config.bl_scale_ad;
 	bl_temp = (u32)bl_temp * bl_scale_ad / MAX_AD_BL_SCALE_LEVEL;
+
+	if (bl_temp != 0 && bl_temp < backlight_min)
+		bl_temp = backlight_min;
 
 	pr_debug("bl_scale = %u, bl_scale_ad = %u, bl_lvl = %u\n",
 		bl_scale, bl_scale_ad, (u32)bl_temp);
@@ -796,7 +804,7 @@ static int dsi_display_status_reg_read(struct dsi_display *display)
 		ESD_TEST3=temp_buffer_1[0];
 
 		if(((ESD_TEST1==132) && (ESD_TEST2==0))||(ESD_TEST3!=159))
-		  	 rc=-1;
+			 rc=-1;
 		else
 			rc=1;
 }else{
@@ -1546,8 +1554,10 @@ static int dsi_display_debugfs_init(struct dsi_display *display)
 	dir = debugfs_create_dir(display->name, NULL);
 	if (IS_ERR_OR_NULL(dir)) {
 		rc = PTR_ERR(dir);
+#ifdef CONFIG_DEBUG_FS
 		pr_err("[%s] debugfs create dir failed, rc = %d\n",
 		       display->name, rc);
+#endif
 		goto error;
 	}
 
@@ -4553,8 +4563,9 @@ static ssize_t sysfs_dynamic_dsi_clk_write(struct device *dev,
 
 	pr_info("%s: bitrate param value: '%d'\n", __func__, clk_rate);
 
-	mutex_lock(&dsi_display_clk_mutex);
+	mutex_lock(&display->display_lock);
 
+	mutex_lock(&dsi_display_clk_mutex);
 	display->cached_clk_rate = clk_rate;
 	rc = dsi_display_request_update_dsi_bitrate(display, clk_rate);
 	if (!rc) {
@@ -4567,6 +4578,7 @@ static ssize_t sysfs_dynamic_dsi_clk_write(struct device *dev,
 		atomic_set(&display->clkrate_change_pending, 0);
 		display->cached_clk_rate = 0;
 
+		mutex_unlock(&dsi_display_clk_mutex);
 		mutex_unlock(&display->display_lock);
 
 		return rc;
@@ -4574,6 +4586,7 @@ static ssize_t sysfs_dynamic_dsi_clk_write(struct device *dev,
 	atomic_set(&display->clkrate_change_pending, 1);
 
 	mutex_unlock(&dsi_display_clk_mutex);
+	mutex_unlock(&display->display_lock);
 
 	return count;
 
@@ -4658,11 +4671,7 @@ static int dsi_display_bind(struct device *dev,
 
 	mutex_lock(&display->display_lock);
 
-	rc = dsi_display_debugfs_init(display);
-	if (rc) {
-		pr_err("[%s] debugfs init failed, rc=%d\n", display->name, rc);
-		goto error;
-	}
+	dsi_display_debugfs_init(display);
 
 	atomic_set(&display->clkrate_change_pending, 0);
 	display->cached_clk_rate = 0;
@@ -7343,37 +7352,38 @@ int dsi_display_read_serial_number(struct dsi_display *dsi_display,
 	int rc = 0;
 	u32 flags = 0;
 	struct dsi_cmd_desc *cmds;
-    struct dsi_display_mode *mode;
-    struct dsi_display_ctrl *m_ctrl;
-    int retry_times;
+	struct dsi_display_mode *mode;
+	struct dsi_display_ctrl *m_ctrl;
+	int retry_times;
 
-    m_ctrl = &dsi_display->ctrl[dsi_display->cmd_master_idx];
+	m_ctrl = &dsi_display->ctrl[dsi_display->cmd_master_idx];
 
 	if (!panel || !m_ctrl)
 		return -EINVAL;
 
-    rc = dsi_display_cmd_engine_enable(dsi_display);
-    if (rc) {
-        pr_err("cmd engine enable failed\n");
-        return -EINVAL;
-    }
+	rc = dsi_display_cmd_engine_enable(dsi_display);
+	if (rc) {
+		pr_err("cmd engine enable failed\n");
+		return -EINVAL;
+	}
 
 	dsi_panel_acquire_panel_lock(panel);
 
-    mode = panel->cur_mode;
+	mode = panel->cur_mode;
 	cmds = mode->priv_info->cmd_sets[DSI_CMD_SET_PANEL_SERIAL_NUMBER].cmds;;
 	if (cmds->last_command) {
 		cmds->msg.flags |= MIPI_DSI_MSG_LASTCOMMAND;
 		flags |= DSI_CTRL_CMD_LAST_COMMAND;
 	}
 	flags |= (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ);
-    if (!m_ctrl->ctrl->vaddr)
-        goto error;
+
+	if (!m_ctrl->ctrl->vaddr)
+		goto error;
 
 	cmds->msg.rx_buf = buf;
 	cmds->msg.rx_len = len;
 	retry_times = 0;
-    do {
+	do {
 	    rc = dsi_ctrl_cmd_transfer(m_ctrl->ctrl, &cmds->msg, flags);
 	    retry_times++;
 	} while ((rc <= 0) && (retry_times < 3));
@@ -7589,39 +7599,40 @@ int dsi_display_read_panel_id(struct dsi_display *dsi_display,
 	int rc = 0;
 	u32 flags = 0;
 	struct dsi_cmd_desc *cmds;
-    struct dsi_display_mode *mode;
-    struct dsi_display_ctrl *m_ctrl;
-    int retry_times;
+	struct dsi_display_mode *mode;
+	struct dsi_display_ctrl *m_ctrl;
+	int retry_times;
 
-    m_ctrl = &dsi_display->ctrl[dsi_display->cmd_master_idx];
+	m_ctrl = &dsi_display->ctrl[dsi_display->cmd_master_idx];
 
 	if (!panel || !m_ctrl)
 		return -EINVAL;
 
-    rc = dsi_display_cmd_engine_enable(dsi_display);
-    if (rc) {
-        pr_err("cmd engine enable failed\n");
-        return -EINVAL;
-    }
+	rc = dsi_display_cmd_engine_enable(dsi_display);
+	if (rc) {
+		pr_err("cmd engine enable failed\n");
+		return -EINVAL;
+	}
 
 	dsi_panel_acquire_panel_lock(panel);
 
-    mode = panel->cur_mode;
+	mode = panel->cur_mode;
 	cmds = mode->priv_info->cmd_sets[DSI_CMD_SET_PANEL_ID].cmds;;
 	if (cmds->last_command) {
 		cmds->msg.flags |= MIPI_DSI_MSG_LASTCOMMAND;
 		flags |= DSI_CTRL_CMD_LAST_COMMAND;
 	}
 	flags |= (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ);
-    if (!m_ctrl->ctrl->vaddr)
-        goto error;
+
+	if (!m_ctrl->ctrl->vaddr)
+		goto error;
 
 	cmds->msg.rx_buf = buf;
 	cmds->msg.rx_len = len;
 	retry_times = 0;
-    do {
-	    rc = dsi_ctrl_cmd_transfer(m_ctrl->ctrl, &cmds->msg, flags);
-	    retry_times++;
+	do {
+		rc = dsi_ctrl_cmd_transfer(m_ctrl->ctrl, &cmds->msg, flags);
+		retry_times++;
 	} while ((rc <= 0) && (retry_times < 3));
 
 	if (rc <= 0)

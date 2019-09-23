@@ -3262,7 +3262,9 @@ void scheduler_tick(void)
 		flag = SCHED_CPUFREQ_WALT | SCHED_CPUFREQ_EARLY_DET;
 
 	cpufreq_update_util(rq, flag);
+
 	psi_task_tick(rq);
+
 	raw_spin_unlock(&rq->lock);
 
 	if (early_notif)
@@ -3618,11 +3620,11 @@ static void __sched notrace __schedule(bool preempt)
 		update_rq_clock(rq);
 
 	next = pick_next_task(rq, prev, &rf);
+	wallclock = sched_ktime_clock();
 	clear_tsk_need_resched(prev);
 	clear_preempt_need_resched();
 	rq->clock_skip_update = 0;
 
-	wallclock = sched_ktime_clock();
 	if (likely(prev != next)) {
 		if (!prev->on_rq)
 			prev->last_sleep_ts = wallclock;
@@ -4323,6 +4325,7 @@ static int __sched_setscheduler(struct task_struct *p,
 
 	/* The pi code expects interrupts enabled */
 	BUG_ON(pi && in_interrupt());
+
 recheck:
 	/* double check policy once rq lock held */
 	if (policy < 0) {
@@ -8101,6 +8104,7 @@ int sched_cpu_starting(unsigned int cpu)
 {
 	set_cpu_rq_start_time(cpu);
 	sched_rq_cpu_starting(cpu);
+	clear_walt_request(cpu);
 	return 0;
 }
 

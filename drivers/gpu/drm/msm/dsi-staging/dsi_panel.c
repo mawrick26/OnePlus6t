@@ -700,30 +700,32 @@ static int dsi_panel_update_backlight(struct dsi_panel *panel,
 	}
 
 	dsi = &panel->mipi_device;
-	if (panel->is_hbm_enabled){
+
+	if (panel->is_hbm_enabled)
 		return 0;
-		}
+
 	if (op_dimlayer_bl_enabled != op_dimlayer_bl_enable_real) {
 		op_dimlayer_bl_enable_real = op_dimlayer_bl_enabled;
 		if (op_dimlayer_bl_enable_real) {
-		bl_lvl = op_dimlayer_bl_alpha;
+			bl_lvl = op_dimlayer_bl_alpha;
 			pr_err("dc light enable\n");
 		} else {
 			pr_err("dc light disenable\n");
 		}
 	}
+
 	if (op_dimlayer_bl_enable_real) {
 		bl_lvl = op_dimlayer_bl_alpha;
-    }
-    if (panel->bl_config.bl_high2bit){
-	if(HBM_flag==true){
-		return 0;
-		}
-	else{
+	}
+
+	if (panel->bl_config.bl_high2bit) {
+		if (HBM_flag)
+			return 0;
 		rc = mipi_dsi_dcs_set_display_brightness_samsung(dsi, bl_lvl);
-		}
-    } else
-	rc = mipi_dsi_dcs_set_display_brightness(dsi, bl_lvl);
+	} else {
+		rc = mipi_dsi_dcs_set_display_brightness(dsi, bl_lvl);
+	}
+
 	if (rc < 0)
 		pr_err("failed to update dcs backlight:%d\n", bl_lvl);
 
@@ -1644,16 +1646,16 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-panel-adaption-mode-on-command-state",
 	"qcom,mdss-dsi-panel-adaption-mode-off-command-state",
 	"qcom,mdss-dsi-panel-serial-num-command-state",
-   	"qcom,mdss-dsi-panel-id-command-state",
-    	"qcom,mdss-dsi-panel-read-register-open-command-state",
-    	"qcom,mdss-dsi-panel-id1-command-state",
-    	"qcom,mdss-dsi-panel-id2-command-state",
-   	"qcom,mdss-dsi-panel-id3-command-state",
-    	"qcom,mdss-dsi-panel-id4-command-state",
-   	"qcom,mdss-dsi-panel-id5-command-state",
-     	"qcom,mdss-dsi-panel-id6-command-state",
-     	"qcom,mdss-dsi-panel-id7-command-state",
-     	"qcom,mdss-dsi-panel-read-register-close-command-state",
+	"qcom,mdss-dsi-panel-id-command-state",
+	"qcom,mdss-dsi-panel-read-register-open-command-state",
+	"qcom,mdss-dsi-panel-id1-command-state",
+	"qcom,mdss-dsi-panel-id2-command-state",
+	"qcom,mdss-dsi-panel-id3-command-state",
+	"qcom,mdss-dsi-panel-id4-command-state",
+	"qcom,mdss-dsi-panel-id5-command-state",
+	"qcom,mdss-dsi-panel-id6-command-state",
+	"qcom,mdss-dsi-panel-id7-command-state",
+	"qcom,mdss-dsi-panel-read-register-close-command-state",
     "qcom,mdss-dsi-panel-hbm-max-brightness-command-on-state",
     "qcom,mdss-dsi-panel-hbm-max-brightness-command-off-state",
     "qcom,mdss-dsi-panel-aod-off-hbm-on-command-state",
@@ -1927,9 +1929,7 @@ error:
 static int dsi_panel_parse_misc_features(struct dsi_panel *panel,
 				     struct device_node *of_node)
 {
-	panel->ulps_enabled =
-		of_property_read_bool(of_node, "qcom,ulps-enabled");
-
+	panel->ulps_enabled = true;
 	pr_info("%s: ulps feature %s\n", __func__,
 		(panel->ulps_enabled ? "enabled" : "disabled"));
 
@@ -1945,8 +1945,8 @@ static int dsi_panel_parse_misc_features(struct dsi_panel *panel,
 	panel->sync_broadcast_en = of_property_read_bool(of_node,
 			"qcom,cmd-sync-wait-broadcast");
 
-	panel->lp11_init = of_property_read_bool(of_node,
-			"qcom,mdss-dsi-lp11-init");
+	panel->lp11_init = false;
+
 	return 0;
 }
 
@@ -4203,10 +4203,11 @@ int dsi_panel_set_hbm_mode(struct dsi_panel *panel, int level)
             pr_err("This panel does not support HBM mode off.\n");
             goto error;
         } else
-        {HBM_flag=false;
+        {
+            HBM_flag=false;
             rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_HBM_OFF);
-	printk(KERN_ERR"When HBM OFF -->hbm_backight = %d panel->bl_config.bl_level =%d\n",panel->hbm_backlight,panel->bl_config.bl_level);
-	rc= dsi_panel_update_backlight(panel,panel->hbm_backlight);
+            printk(KERN_ERR"When HBM OFF -->hbm_backight = %d panel->bl_config.bl_level =%d\n",panel->hbm_backlight,panel->bl_config.bl_level);
+            rc= dsi_panel_update_backlight(panel,panel->hbm_backlight);
         }
     break;
 
@@ -4550,14 +4551,14 @@ int dsi_panel_set_aod_mode(struct dsi_panel *panel, int level)
 		        dsi_panel_set_night_mode(panel, panel->night_mode);
 		    if (panel->adaption_mode)
 		        dsi_panel_set_adaption_mode(panel, panel->adaption_mode);
-			   rc= dsi_panel_update_backlight(panel,panel->bl_config.bl_level);
-				}
+                                }
               printk(KERN_ERR"send AOD OFF commd end \n");
-              aod_complete = false;
+
+		aod_complete = false;
+                
             }
         }
     panel->aod_curr_mode = level;
     pr_err("AOD MODE = %d\n", level);
 return rc;
 }
-

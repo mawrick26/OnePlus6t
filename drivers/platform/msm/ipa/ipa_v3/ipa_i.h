@@ -768,7 +768,7 @@ struct ipa3_ep_context {
 	bool keep_ipa_awake;
 	struct ipa3_wlan_stats wstats;
 	u32 uc_offload_state;
-	bool disconnect_in_progress;
+	atomic_t disconnect_in_progress;
 	u32 qmi_request_sent;
 	bool napi_enabled;
 	u32 eot_in_poll_err;
@@ -1446,6 +1446,7 @@ struct ipa3_char_device_context {
  * @logbuf: ipc log buffer for high priority messages
  * @logbuf_low: ipc log buffer for low priority messages
  * @ipa_wdi2: using wdi-2.0
+ * @ipa_config_is_auto: is this AUTO use case
  * @use_64_bit_dma_mask: using 64bits dma mask
  * @ipa_bus_hdl: msm driver handle for the data path bus
  * @ctrl: holds the core specific operations based on
@@ -1547,6 +1548,7 @@ struct ipa3_context {
 	bool use_ipa_teth_bridge;
 	bool modem_cfg_emb_pipe_flt;
 	bool ipa_wdi2;
+	bool ipa_config_is_auto;
 	bool use_64_bit_dma_mask;
 	/* featurize if memory footprint becomes a concern */
 	struct ipa3_stats stats;
@@ -1607,6 +1609,7 @@ struct ipa3_context {
 	bool use_ipa_pm;
 	bool vlan_mode_iface[IPA_VLAN_IF_MAX];
 	bool wdi_over_pcie;
+	bool fw_loaded;
 };
 
 struct ipa3_plat_drv_res {
@@ -1627,6 +1630,7 @@ struct ipa3_plat_drv_res {
 	u32 ee;
 	bool modem_cfg_emb_pipe_flt;
 	bool ipa_wdi2;
+	bool ipa_config_is_auto;
 	bool use_64_bit_dma_mask;
 	bool use_bw_vote;
 	u32 wan_rx_ring_size;

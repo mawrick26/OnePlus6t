@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -124,6 +124,7 @@ enum msm_mdp_plane_property {
 	PLANE_PROP_SRC_CONFIG,
 	PLANE_PROP_FB_TRANSLATION_MODE,
 	PLANE_PROP_MULTIRECT_MODE,
+	PLANE_PROP_LAYOUT,
 
 	/* total # of properties */
 	PLANE_PROP_COUNT
@@ -159,7 +160,7 @@ enum msm_mdp_crtc_property {
 	CRTC_PROP_CAPTURE_OUTPUT,
 
 	CRTC_PROP_ENABLE_SUI_ENHANCEMENT,
-        CRTC_PROP_IDLE_PC_STATE,
+	CRTC_PROP_IDLE_PC_STATE,
 	CRTC_PROP_CUSTOM,
 
 	/* total # of properties */
@@ -195,12 +196,10 @@ enum msm_mdp_conn_property {
 	CONNECTOR_PROP_AUTOREFRESH,
 	CONNECTOR_PROP_LP,
 	CONNECTOR_PROP_FB_TRANSLATION_MODE,
-
 	CONNECTOR_PROP_CUSTOM,
 
 	/* total # of properties */
 	CONNECTOR_PROP_COUNT
-	
 };
 
 #define MAX_H_TILES_PER_DISPLAY 2

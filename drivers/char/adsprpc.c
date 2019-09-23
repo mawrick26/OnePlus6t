@@ -103,6 +103,7 @@
 #define FASTRPC_LINK_DISCONNECTING (0x7)
 #define FASTRPC_LINK_REMOTE_DISCONNECTING (0x8)
 #define FASTRPC_GLINK_INTENT_LEN  (64)
+#define FASTRPC_GLINK_INTENT_NUM  (16)
 
 #define PERF_KEYS \
 	"count:flush:map:copy:glink:getargs:putargs:invalidate:invoke:tid:ptr"
@@ -239,6 +240,8 @@ struct smq_invoke_ctx {
 	unsigned int *attrs;
 	uint32_t *crc;
 	uint64_t ctxid;
+	void *handle;
+	const void *ptr;
 };
 
 struct fastrpc_ctx_lst {
@@ -839,8 +842,8 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 
 		map->apps = me;
 		map->fl = NULL;
-		VERIFY(err, !dma_alloc_memory(&region_phys,
-				 &region_vaddr, len, dma_attrs));
+		VERIFY(err, !dma_alloc_memory(&region_phys, &region_vaddr,
+				 len, dma_attrs));
 		if (err)
 			goto bail;
 		map->phys = (uintptr_t)region_phys;
@@ -2059,7 +2062,8 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 		if (err)
 			goto bail;
 	}
-
+	if (ctx->handle)
+		glink_rx_done(ctx->handle, ctx->ptr, true);
 	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_INVARGS),
 	if (!fl->sctx->smmu.coherent)
 		inv_args(ctx);
@@ -2915,11 +2919,13 @@ static void fastrpc_glink_notify_rx(void *handle, const void *priv,
 	if (err)
 		goto bail;
 
+	me->ctxtable[index]->handle = handle;
+	me->ctxtable[index]->ptr = ptr;
+
 	context_notify_user(me->ctxtable[index], rsp->retval);
 bail:
 	if (err)
 		pr_err("adsprpc: invalid response or context\n");
-	glink_rx_done(handle, ptr, true);
 }
 
 static void fastrpc_glink_notify_state(void *handle, const void *priv,
@@ -3416,7 +3422,7 @@ static const struct file_operations debugfs_fops = {
 static int fastrpc_channel_open(struct fastrpc_file *fl)
 {
 	struct fastrpc_apps *me = &gfa;
-	int cid, err = 0;
+	int cid, ii, err = 0;
 
 	mutex_lock(&me->smd_mutex);
 
@@ -3463,15 +3469,11 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 		kref_init(&me->channel[cid].kref);
 		pr_info("'opened /dev/%s c %d %d'\n", gcinfo[cid].name,
 						MAJOR(me->dev_no), cid);
-		if (me->glink) {
-			err = glink_queue_rx_intent(me->channel[cid].chan, NULL,
+
+		for (ii = 0; ii < FASTRPC_GLINK_INTENT_NUM && me->glink; ii++)
+			glink_queue_rx_intent(me->channel[cid].chan, NULL,
 				FASTRPC_GLINK_INTENT_LEN);
-			err |= glink_queue_rx_intent(me->channel[cid].chan,
-				NULL, FASTRPC_GLINK_INTENT_LEN);
-			if (err)
-				pr_warn("adsprpc: initial intent fail for %d err %d\n",
-					cid, err);
-		}
+
 		if (cid == 0 && me->channel[cid].ssrcount !=
 				 me->channel[cid].prevssrcount) {
 			if (fastrpc_mmap_remove_ssr(fl))
@@ -3612,6 +3614,7 @@ bail:
 static int fastrpc_internal_control(struct fastrpc_file *fl,
 					struct fastrpc_ioctl_control *cp)
 {
+	struct fastrpc_apps *me = &gfa;
 	int err = 0;
 	int latency;
 
@@ -3637,7 +3640,8 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 			pm_qos_update_request(&fl->pm_qos_req, latency);
 		break;
 	case FASTRPC_CONTROL_SMMU:
-		fl->sharedcb = cp->smmu.sharedcb;
+		if (!me->legacy)
+			fl->sharedcb = cp->smmu.sharedcb;
 		break;
 	case FASTRPC_CONTROL_KALLOC:
 		cp->kalloc.kalloc_support = 1;

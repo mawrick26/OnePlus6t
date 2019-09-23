@@ -1269,7 +1269,7 @@ static int qseecom_register_listener(struct qseecom_dev_handle *data,
 	new_entry->listener_in_use = false;
 	list_add_tail(&new_entry->list, &qseecom.registered_listener_list_head);
 
-	pr_warn("Service %d is registered\n", rcvd_lstnr.listener_id);
+	pr_debug("Service %d is registered\n", rcvd_lstnr.listener_id);
 	return ret;
 }
 
@@ -1328,7 +1328,7 @@ exit:
 	kzfree(ptr_svc);
 
 	data->released = true;
-	pr_warn("Service %d is unregistered\n", data->listener.id);
+	pr_debug("Service %d is unregistered\n", data->listener.id);
 	return ret;
 }
 
@@ -1509,7 +1509,6 @@ err_dec_ref_cnt:
 	mutex_unlock(&clk_access_lock);
 	return ret;
 }
-
 
 static int qseecom_scale_bus_bandwidth_timer(uint32_t mode)
 {
@@ -4697,7 +4696,6 @@ recheck:
 		strlcpy(entry->app_name, app_name, MAX_APP_NAME_SIZE);
 		if (__qseecom_get_fw_size(app_name, &fw_size, &app_arch)) {
 			ret = -EIO;
-			kfree(entry);
 			goto exit_entry_free;
 		}
 		entry->app_arch = app_arch;

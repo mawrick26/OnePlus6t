@@ -146,6 +146,9 @@ SoCs:
 - SDA429
   compatible = "qcom,sda429"
 
+- SDM429W
+  compatible = "qcom,sdm429w"
+
 - QM215
   compatible = "qcom, qm215"
 
@@ -330,6 +333,7 @@ compatible = "qcom,sdm845-mtp"
 compatible = "qcom,sdm845-mtp"
 compatible = "qcom,sdm845-qrd"
 compatible = "qcom,sdm845-qvr"
+compatible = "qcom,sdm845-vm"
 compatible = "qcom,sda845-cdp"
 compatible = "qcom,sda845-mtp"
 compatible = "qcom,sda845-qrd"
@@ -365,6 +369,7 @@ compatible = "qcom,msm8937-pmi8937-qrd-sku2"
 compatible = "qcom,sdm429-cdp"
 compatible = "qcom,sdm429-mtp"
 compatible = "qcom,sdm429-qrd"
+compatible = "qcom,sdm429w-qrd"
 compatible = "qcom,sda429-cdp"
 compatible = "qcom,sda429-mtp"
 compatible = "qcom,sdm439-cdp"
@@ -405,5 +410,6 @@ compatible = "qcom,sdxpoorwills-rumi"
 compatible = "qcom,sdxpoorwills-atp"
 compatible = "qcom,sdxpoorwills-mtp"
 compatible = "qcom,sdxpoorwills-cdp"
-compatible = "qcom,sdxpoorwills-ttp"
+compatible = "qcom,sa415m-ttp"
+compatible = "qcom,sa415m-ccard"
 compatible = "qcom,mdm9607-ttp"

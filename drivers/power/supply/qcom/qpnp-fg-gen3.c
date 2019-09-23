@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2778,7 +2778,25 @@ out:
 	mutex_unlock(&chip->cyc_ctr.lock);
 }
 
-static const char *fg_get_cycle_count(struct fg_chip *chip)
+static int fg_get_cycle_count(struct fg_chip *chip)
+{
+	int i, len = 0;
+
+	if (!chip->cyc_ctr.en)
+		return 0;
+
+	mutex_lock(&chip->cyc_ctr.lock);
+	for (i = 0; i < BUCKET_COUNT; i++)
+		len += chip->cyc_ctr.count[i];
+
+	mutex_unlock(&chip->cyc_ctr.lock);
+
+	len = len / BUCKET_COUNT;
+
+	return len;
+}
+
+static const char *fg_get_cycle_counts(struct fg_chip *chip)
 {
 	int i, len = 0;
 	char *buf;
@@ -4095,8 +4113,11 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
 		pval->intval = chip->bp.float_volt_uv;
 		break;
+	case POWER_SUPPLY_PROP_CYCLE_COUNT:
+		pval->intval = fg_get_cycle_count(chip);
+		break;
 	case POWER_SUPPLY_PROP_CYCLE_COUNTS:
-		pval->strval = fg_get_cycle_count(chip);
+		pval->strval = fg_get_cycle_counts(chip);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_NOW_RAW:
 		rc = fg_get_charge_raw(chip, &pval->intval);
@@ -4372,6 +4393,7 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_BATTERY_TYPE,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
+	POWER_SUPPLY_PROP_CYCLE_COUNT,
 	POWER_SUPPLY_PROP_CYCLE_COUNTS,
 	POWER_SUPPLY_PROP_CHARGE_NOW_RAW,
 	POWER_SUPPLY_PROP_CHARGE_NOW,
@@ -4386,9 +4408,6 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_CC_STEP,
 	POWER_SUPPLY_PROP_CC_STEP_SEL,
 	POWER_SUPPLY_PROP_REAL_CAPACITY,
-	POWER_SUPPLY_PROP_SET_ALLOW_READ_EXTERN_FG_IIC,
-	POWER_SUPPLY_PROP_BQ_SOC,
-	POWER_SUPPLY_PROP_BATTERY_HEALTH,
 };
 
 static const struct power_supply_desc fg_psy_desc = {
@@ -4406,6 +4425,7 @@ static const struct power_supply_desc fg_psy_desc = {
 
 #define DEFAULT_ESR_CHG_TIMER_RETRY	8
 #define DEFAULT_ESR_CHG_TIMER_MAX	16
+#define VOLTAGE_MODE_SAT_CLEAR_BIT	BIT(3)
 static int fg_hw_init(struct fg_chip *chip)
 {
 	int rc;
@@ -4629,6 +4649,14 @@ static int fg_hw_init(struct fg_chip *chip)
 		return rc;
 	}
 
+	rc = fg_sram_masked_write(chip, ESR_EXTRACTION_ENABLE_WORD,
+				ESR_EXTRACTION_ENABLE_OFFSET,
+				VOLTAGE_MODE_SAT_CLEAR_BIT,
+				VOLTAGE_MODE_SAT_CLEAR_BIT,
+				FG_IMA_DEFAULT);
+	if (rc < 0)
+		return rc;
+
 	fg_encode(chip->sp, FG_SRAM_ESR_TIGHT_FILTER,
 		chip->dt.esr_tight_flt_upct, buf);
 	rc = fg_sram_write(chip, chip->sp[FG_SRAM_ESR_TIGHT_FILTER].addr_word,
@@ -4671,13 +4699,6 @@ static int fg_hw_init(struct fg_chip *chip)
 			ESR_PULL_DOWN_IVAL_MASK, val);
 	if (rc < 0) {
 		pr_err("Error in writing esr_meas_curr_ma, rc=%d\n", rc);
-		return rc;
-	}
-
-	rc = fg_masked_write(chip,
-			BATT_INFO_ESR_PULL_DN_CFG(chip), 0xFF, 0);
-	if (rc < 0) {
-		pr_err("Error in writing ESR PULL DN, rc=%d\n", rc);
 		return rc;
 	}
 
@@ -5690,6 +5711,7 @@ static int fg_parse_dt(struct fg_chip *chip)
 
 	chip->dt.disable_esr_pull_dn = of_property_read_bool(node,
 					"qcom,fg-disable-esr-pull-dn");
+
 	chip->dt.disable_fg_twm = of_property_read_bool(node,
 					"qcom,fg-disable-in-twm");
 
@@ -5699,9 +5721,6 @@ static int fg_parse_dt(struct fg_chip *chip)
 static void fg_cleanup(struct fg_chip *chip)
 {
 	int i;
-
-	if (chip->fg_psy)
-		power_supply_unregister(chip->fg_psy);
 
 	power_supply_unreg_notifier(&chip->nb);
 	qpnp_misc_twm_notifier_unregister(&chip->twm_nb);

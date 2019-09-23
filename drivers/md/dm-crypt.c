@@ -1895,7 +1895,6 @@ static int crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 			else if (!strcasecmp(opt_string, "allow_encrypt_override"))
 				set_bit(DM_CRYPT_ENCRYPT_OVERRIDE, &cc->flags);
 
-
 			else if (sscanf(opt_string, "sector_size:%hu%c",
 					&cc->sector_size, &dummy) == 1) {
 				if (cc->sector_size < (1 << SECTOR_SHIFT) ||
@@ -1911,6 +1910,7 @@ static int crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 				cc->sector_shift = __ffs(cc->sector_size) - SECTOR_SHIFT;
 			} else if (!strcasecmp(opt_string, "iv_large_sectors"))
 				set_bit(CRYPT_IV_LARGE_SECTORS, &cc->cipher_flags);
+
 			else {
 				ti->error = "Invalid feature arguments";
 				goto bad;
@@ -2044,6 +2044,7 @@ static void crypt_status(struct dm_target *ti, status_type_t type,
 		num_feature_args += !!ti->num_discard_bios;
 		num_feature_args += test_bit(DM_CRYPT_SAME_CPU, &cc->flags);
 		num_feature_args += test_bit(DM_CRYPT_NO_OFFLOAD, &cc->flags);
+		num_feature_args += test_bit(DM_CRYPT_ENCRYPT_OVERRIDE, &cc->flags);
 		num_feature_args += cc->sector_size != (1 << SECTOR_SHIFT);
 		num_feature_args += test_bit(CRYPT_IV_LARGE_SECTORS, &cc->cipher_flags);
 		num_feature_args += test_bit(DM_CRYPT_ENCRYPT_OVERRIDE, &cc->flags);
@@ -2055,6 +2056,8 @@ static void crypt_status(struct dm_target *ti, status_type_t type,
 				DMEMIT(" same_cpu_crypt");
 			if (test_bit(DM_CRYPT_NO_OFFLOAD, &cc->flags))
 				DMEMIT(" submit_from_crypt_cpus");
+			if (test_bit(DM_CRYPT_ENCRYPT_OVERRIDE, &cc->flags))
+				DMEMIT(" allow_encrypt_override");
 			if (cc->sector_size != (1 << SECTOR_SHIFT))
 				DMEMIT(" sector_size:%d", cc->sector_size);
 			if (test_bit(CRYPT_IV_LARGE_SECTORS, &cc->cipher_flags))

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,6 +49,9 @@ static const struct drm_prop_enum_list e_topology_name[] = {
 	{SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE_DSC,	"sde_dualpipemerge_dsc"},
 	{SDE_RM_TOPOLOGY_DUALPIPE_DSCMERGE,	"sde_dualpipe_dscmerge"},
 	{SDE_RM_TOPOLOGY_PPSPLIT,	"sde_ppsplit"},
+	{SDE_RM_TOPOLOGY_QUADPIPE_3DMERGE,	"sde_quadpipemerge"},
+	{SDE_RM_TOPOLOGY_QUADPIPE_DSCMERGE,	"sde_quadpipe_dscmerge"},
+	{SDE_RM_TOPOLOGY_QUADPIPE_3DMERGE_DSC,	"sde_quadpipe_3dmerge_dsc"}
 };
 static const struct drm_prop_enum_list e_topology_control[] = {
 	{SDE_RM_TOPCTL_RESERVE_LOCK,	"reserve_lock"},
@@ -509,8 +512,7 @@ static int _sde_connector_update_power_locked(struct sde_connector *c_conn)
 		mutex_unlock(&c_conn->lock);
 		sde_connector_schedule_status_work(connector, false);
 		mutex_lock(&c_conn->lock);
-    }
-
+	}
 
 	return rc;
 }
@@ -520,7 +522,7 @@ static int _sde_connector_update_bl_scale(struct sde_connector *c_conn)
 	struct dsi_display *dsi_display;
 	struct dsi_backlight_config *bl_config;
 	int rc = 0;
-		struct backlight_device *bd;
+	struct backlight_device *bd;
 
 	if (!c_conn) {
 		SDE_ERROR("Invalid params sde_connector null\n");
@@ -534,13 +536,14 @@ static int _sde_connector_update_bl_scale(struct sde_connector *c_conn)
 			((dsi_display) ? dsi_display->panel : NULL));
 		return -EINVAL;
 	}
-		bd = c_conn->bl_device;
-		if (!bd) {
-			SDE_ERROR("Invalid params backlight_device null\n");
-			return -EINVAL;
-		}
+
+	bd = c_conn->bl_device;
+	if (!bd) {
+		SDE_ERROR("Invalid params backlight_device null\n");
+		return -EINVAL;
+	}
 	
-		mutex_lock(&bd->update_lock);
+	mutex_lock(&bd->update_lock);
 
 	bl_config = &dsi_display->panel->bl_config;
 
@@ -566,8 +569,8 @@ static int _sde_connector_update_bl_scale(struct sde_connector *c_conn)
 	SDE_DEBUG("bl_scale = %u, bl_scale_ad = %u, bl_level = %u\n",
 		bl_config->bl_scale, bl_config->bl_scale_ad,
 		bl_config->bl_level);
-	if(c_conn->ops.set_backlight==NULL){
-		printk(KERN_ERR"c_conn->ops.set_backlight==NULL\n");
+	if (c_conn->ops.set_backlight == NULL) {
+		printk(KERN_ERR"c_conn->ops.set_backlight == NULL\n");
 		return 0;
 		}	
 	rc = c_conn->ops.set_backlight(dsi_display, bl_config->bl_level);
@@ -2469,9 +2472,6 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 		0x0, 0, MAX_AD_BL_SCALE_LEVEL, MAX_AD_BL_SCALE_LEVEL,
 		CONNECTOR_PROP_AD_BL_SCALE);
 
-
-	msm_property_install_range(&c_conn->property_info,"CONNECTOR_CUST",
-		0x0, 0, INT_MAX, 0, CONNECTOR_PROP_CUSTOM);
 	c_conn->bl_scale_dirty = false;
 	c_conn->bl_scale = MAX_BL_SCALE_LEVEL;
 	c_conn->bl_scale_ad = MAX_AD_BL_SCALE_LEVEL;

@@ -13,10 +13,6 @@ struct lkdtm_list {
 	struct list_head node;
 };
 
-struct lkdtm_list {
-	struct list_head node;
-};
-
 /*
  * Make sure our attempts to over run the kernel stack doesn't trigger
  * a compiler warning when CONFIG_FRAME_WARN is set. Then make sure we
@@ -71,7 +67,7 @@ void lkdtm_WARNING(void)
 
 void lkdtm_EXCEPTION(void)
 {
-	*((int *) 0) = 0;
+	*((volatile int *) 0) = 0;
 }
 
 void lkdtm_LOOP(void)
