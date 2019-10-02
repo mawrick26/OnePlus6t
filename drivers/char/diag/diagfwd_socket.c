@@ -496,7 +496,7 @@ static void __socket_close_channel(struct diag_socket_info *info)
 	if (!atomic_read(&info->opened))
 		return;
 
-	if ((bootup_req[info->peripheral] == PEPIPHERAL_SSR_UP) &&
+	if ((bootup_req[info->peripheral] == PERIPHERAL_SSR_UP) &&
 		(info->port_type == PORT_TYPE_SERVER)) {
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 		"diag: %s is up, stopping cleanup: bootup_req = %d\n",
