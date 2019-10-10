@@ -213,7 +213,7 @@ static int msm_drm_notifier_cb(struct notifier_block *nb, unsigned long action,
 	for (i = 0; i < DEVFREQ_MAX; i++) {
 		struct boost_dev *b = d->devices + i;
 
-		if (*blank == MSM_DRM_BLANK_UNBLANK) {
+		if (*blank == MSM_DRM_BLANK_UNBLANK_CUST) {
 			clear_bit(SCREEN_OFF, &b->state);
 			__devfreq_boost_kick_wake(b);
 		} else {
